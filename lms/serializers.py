@@ -3,9 +3,15 @@ from .models import Course, Lesson
 
 
 class CourseSerializer(serializers.ModelSerializer):
+    lessons_count = serializers.SerializerMethodField()
+
+    def get_lessons_count(self, obj):
+        return obj.lessons.count()
+
+
     class Meta:
         model = Course
-        fields = "__all__"
+        fields = ["id", "title", "lessons_count"]
 
 
 class LessonSerializer(serializers.ModelSerializer):
