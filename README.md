@@ -77,6 +77,18 @@
 
 ---
 
+## Платежи
+
+Реализовано:
+
+- Отображение списка платежей
+- Фильтрация по курсу, уроку и способу оплаты
+- Сортировка по дате оплаты (возрастание/убывание)
+
+Используется `ListAPIView` с фильтрацией через `DjangoFilterBackend` и сортировкой через `OrderingFilter`.
+
+---
+
 # Пользователи и аутентификация
 
 Для работы с пользователями создано отдельное приложение `users`.
@@ -136,6 +148,21 @@
 
 ---
 
+## Payment
+
+Модель для хранения информации о платежах пользователей.
+
+Поля:
+
+* `user` - пользователь, совершивший платеж (`ForeignKey`);
+* `payment_date` - дата оплаты (`DateTimeField`);
+* `course` - оплаченный курс (`ForeignKey`, nullable);
+* `lesson` - оплаченный урок (`ForeignKey`, nullable);
+* `amount` - сумма оплаты (`DecimalField`);
+* `payment_method` - способ оплаты (choices: наличные/перевод).
+
+---
+
 # API Endpoints
 
 ## Курсы
@@ -157,6 +184,21 @@
 * `PUT /api/lessons/{id}/` - редактирование урока
 * `PATCH /api/lessons/{id}/` - частичное редактирование урока
 * `DELETE /api/lessons/{id}/` - удаление урока
+
+---
+
+## Платежи
+
+* `GET /users/payments/` - список всех платежей с фильтрацией и сортировкой
+
+Параметры фильтрации:
+* `course` - фильтрация по курсу
+* `lesson` - фильтрация по уроку
+* `payment_method` - фильтрация по способу оплаты
+
+Параметры сортировки:
+* `ordering=payment_date` - сортировка по дате оплаты (по умолчанию)
+* `ordering=-payment_date` - сортировка по дате оплаты в обратном порядке
 
 ---
 
@@ -192,6 +234,12 @@ DATABASE_PORT=5432
 python manage.py migrate
 ```
 
+Создать тестовые платежи (кастомная команда):
+
+```
+python manage.py create_payments
+```
+
 Запустить сервер:
 
 ```
@@ -206,6 +254,7 @@ python manage.py runserver
 
 * `/admin/` - панель администратора Django
 * `/api/` - API endpoints для курсов и уроков
+* `/users/` - API endpoints для пользователей и платежей
 
 ---
 
@@ -215,7 +264,7 @@ python manage.py runserver
 
 * Django REST Framework;
 * ViewSets (`ModelViewSet`);
-* Generic Views (`ListCreateAPIView`, `RetrieveUpdateDestroyAPIView`);
+* Generic Views (`ListCreateAPIView`, `RetrieveUpdateDestroyAPIView`, `ListAPIView`);
 * Routers для автоматической генерации URL;
 * Django ORM;
 * миграции;
@@ -225,10 +274,16 @@ python manage.py runserver
 * загрузка медиафайлов;
 * Django Authentication System;
 * создание собственной модели пользователя через `AbstractUser`;
-* настройка кастомного поля авторизации (`USERNAME_FIELD`).
+* настройка кастомного поля авторизации (`USERNAME_FIELD`);
+* `SerializerMethodField` для вычисляемых полей в сериализаторах;
+* вложенные сериализаторы для связанных моделей;
+* фильтрация через `DjangoFilterBackend`;
+* сортировка через `OrderingFilter`;
+* кастомные management-команды для заполнения данными.
 
 ---
 
 # Контакты
 
 Email: **spasov2000@mail.ru**
+
