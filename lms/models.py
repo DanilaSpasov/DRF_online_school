@@ -7,6 +7,12 @@ class Course(models.Model):
         upload_to="courses/previews/", blank=True, null=True, verbose_name="Превью"
     )
     description = models.TextField(verbose_name="Описание")
+    owner = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="courses",
+        verbose_name="Владелец",
+    )
 
     def __str__(self):
         return self.title
@@ -25,6 +31,12 @@ class Lesson(models.Model):
     video_url = models.URLField(verbose_name="Ссылка на видео")
     course = models.ForeignKey(
         Course, on_delete=models.CASCADE, related_name="lessons", verbose_name="Курс"
+    )
+    owner = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="lessons",
+        verbose_name="Владелец",
     )
 
     def __str__(self):

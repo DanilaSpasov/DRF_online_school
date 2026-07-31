@@ -11,14 +11,20 @@ class Command(BaseCommand):
         lesson = Lesson.objects.first()
 
         if not user:
-            self.stdout.write(
-                self.style.ERROR("Нет пользователей")
-            )
+            self.stdout.write(self.style.ERROR("Нет пользователей"))
             return
-        
-        Payment.objects.create(user=user, course=course, amount=1000, payment_method="cash")
-        Payment.objects.create(user=user, lesson=lesson, amount=200, payment_method="transfer")
-        Payment.objects.create(user=user, course=course, amount=1500, payment_method="transfer")
-        Payment.objects.create(user=user, lesson=lesson, amount=300, payment_method="cash")
+
+        Payment.objects.create(
+            user=user, course=course, amount=1000, payment_method="cash"
+        )
+        Payment.objects.create(
+            user=user, lesson=lesson, amount=200, payment_method="transfer"
+        )
+        Payment.objects.create(
+            user=user, course=course, amount=1500, payment_method="transfer"
+        )
+        Payment.objects.create(
+            user=user, lesson=lesson, amount=300, payment_method="cash"
+        )
 
         self.stdout.write(self.style.SUCCESS("Payments created"))

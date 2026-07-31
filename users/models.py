@@ -3,6 +3,7 @@ from django.db import models
 
 from lms.models import Course, Lesson
 
+
 class CustomUserManager(UserManager):
     def create_user(self, email, password=None, **extra_fields):
         user = self.model(email=email, **extra_fields)
@@ -15,6 +16,7 @@ class CustomUserManager(UserManager):
         extra_fields.setdefault("is_superuser", True)
 
         return self.create_user(email, password, **extra_fields)
+
 
 class User(AbstractUser):
     username = None
@@ -44,7 +46,11 @@ class Payment(models.Model):
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="payments")
     payment_date = models.DateTimeField(auto_now_add=True)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="payments", blank=True, null=True)
-    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name="payments", blank=True, null=True)
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name="payments", blank=True, null=True
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name="payments", blank=True, null=True
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(choices=PAYMENT_METHODS, max_length=20)
