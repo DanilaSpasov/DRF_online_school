@@ -3,7 +3,6 @@ from rest_framework import routers
 
 from lms.views import CourseViewSet, LessonRetrieveAPIView, LessonListAPIView
 
-
 router = routers.DefaultRouter()
 router.register("courses", CourseViewSet)
 
