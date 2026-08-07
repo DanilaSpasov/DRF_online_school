@@ -33,3 +33,10 @@ class UserSerializer(serializers.ModelSerializer):
             user.save(update_fields=["password"])
 
         return user
+
+
+class PaymentCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Payment
+        fields = ("course",)
