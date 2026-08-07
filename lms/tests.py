@@ -31,6 +31,7 @@ class LessonCRUDTestCase(APITestCase):
             title="Python course",
             description="Python course description",
             owner=self.owner,
+            price=1000,
         )
         self.lesson = Lesson.objects.create(
             title="Django lesson",
@@ -166,6 +167,7 @@ class SubscriptionTestCase(APITestCase):
             title="Python course",
             description="Python course description",
             owner=self.owner,
+            price=1000,
         )
 
     def test_add_subscription(self):

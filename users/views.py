@@ -5,7 +5,11 @@ from rest_framework.permissions import AllowAny
 
 from users.models import Payment, User
 from users.serializers import PaymentSerializer, UserSerializer, PaymentCreateSerializer
-from users.services import create_stripe_product
+from users.services import (
+    create_stripe_product,
+    create_stripe_price,
+    create_stripe_session,
+)
 
 
 class PaymentListAPIView(generics.ListAPIView):
@@ -44,12 +48,18 @@ class UserViewSet(
 
 
 class PaymentCreateAPIView(generics.CreateAPIView):
+    """View создаёт платёж за курс и возвращает ссылку на оплату через Stripe."""
+
     serializer_class = PaymentCreateSerializer
 
     def perform_create(self, serializer):
         course = serializer.validated_data["course"]
+        product = create_stripe_product(course.title)
+        price = create_stripe_price(product["id"], course.price)
+        session = create_stripe_session(price["id"])
         serializer.save(
             user=self.request.user,
             amount=course.price,
             payment_method="stripe",
+            payment_url=session["url"],
         )

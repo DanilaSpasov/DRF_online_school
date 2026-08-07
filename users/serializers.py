@@ -39,4 +39,22 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ("course",)
+        fields = (
+            "id",
+            "user",
+            "course",
+            "amount",
+            "payment_method",
+            "payment_url",
+            "payment_date",
+        )
+
+        read_only_fields = (
+            "id",
+            "user",
+            "amount",
+            "payment_method",
+            "payment_url",
+            "payment_date",
+        )
+        extra_kwargs = {"course": {"required": True, "allow_null": False}}
