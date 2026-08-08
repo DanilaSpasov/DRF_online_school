@@ -9,5 +9,7 @@ from users.models import User
 @shared_task
 def deactivate_inactive_users():
     inactivity_threshold = timezone.now() - timedelta(days=30)
-    inactive_users = User.objects.filter(is_active=True, last_login__lt=inactivity_threshold)
+    inactive_users = User.objects.filter(
+        is_active=True, last_login__lt=inactivity_threshold
+    )
     inactive_users.update(is_active=False)
