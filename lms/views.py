@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -7,11 +8,18 @@ from rest_framework.views import APIView
 
 from lms.models import Course, Lesson, Subscription
 from lms.paginators import LMSPagination
-from lms.serializers import CourseSerializer, LessonSerializer
+from lms.serializers import (
+    CourseSerializer,
+    LessonSerializer,
+    SubscriptionRequestSerializer,
+    SubscriptionResponseSerializer,
+)
 from users.permissions import IsModer, IsOwner
 
 
 class CourseViewSet(viewsets.ModelViewSet):
+    """ViewSet для просмотра, создания, изменения и удаления курсов."""
+
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
     pagination_class = LMSPagination
@@ -39,6 +47,8 @@ class CourseViewSet(viewsets.ModelViewSet):
 
 
 class LessonListAPIView(generics.ListCreateAPIView):
+    """View для просмотра списка уроков и создания нового урока."""
+
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     pagination_class = LMSPagination
@@ -62,6 +72,8 @@ class LessonListAPIView(generics.ListCreateAPIView):
 
 
 class LessonRetrieveAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """View для просмотра, изменения и удаления отдельного урока."""
+
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
 
@@ -77,6 +89,13 @@ class LessonRetrieveAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class SubscriptionAPIView(APIView):
+
+    @extend_schema(
+        summary="Добавление или удаление подписки",
+        description="Повторный запрос переключает состояние подписки",
+        request=SubscriptionRequestSerializer,
+        responses={200: SubscriptionResponseSerializer},
+    )
     def post(self, request, *args, **kwargs):
         user = request.user
         course_id = request.data.get("course_id")

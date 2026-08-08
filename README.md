@@ -1,6 +1,6 @@
 # DRF Online School
 
-**drf_online_school** - Django-проект с REST API для онлайн-школы. Проект включает работу с базой данных PostgreSQL, использование Django REST Framework, полноценный CRUD для курсов и уроков, пользовательскую модель авторизации, а также административную панель.
+**drf_online_school** - Django-проект с REST API для онлайн-школы. Проект включает работу с базой данных PostgreSQL, использование Django REST Framework, полноценный CRUD для курсов и уроков, подписки на курсы, пользовательскую модель авторизации, документацию API и оплату курсов через Stripe.
 
 ---
 
@@ -13,6 +13,8 @@
 * **ORM:** Django ORM
 * **Контроль версий:** Git / GitHub
 * **Аутентификация:** JWT (JSON Web Tokens)
+* **Документация API:** drf-spectacular 0.30 (Swagger UI / ReDoc)
+* **Платежный сервис:** Stripe SDK 15.4 / Stripe Checkout
 * **Пользовательская модель:** AbstractUser
 * **Менеджер зависимостей:** Poetry
 
@@ -28,7 +30,7 @@
 
 1. установить зависимости проекта;
 2. создать файл `.env` по примеру `.env_example`;
-3. заполнить параметры подключения к базе данных и `SECRET_KEY`.
+3. заполнить параметры подключения к базе данных, `SECRET_KEY` и настройки Stripe.
 
 
 ---
@@ -55,6 +57,8 @@
 - Удаление курса
 - Загрузка превью изображения курса
 - Связь уроков с курсами
+- Цена курса
+- Пагинация списка курсов
 
 Используется `ModelViewSet` для полного CRUD операций через REST API.
 
@@ -72,8 +76,18 @@
 - Загрузка превью изображения урока
 - Ссылка на видео урока
 - Привязка урока к курсу
+- Проверка, что ссылка на видео ведет на YouTube
+- Пагинация списка уроков
 
 Используются `ListCreateAPIView` и `RetrieveUpdateDestroyAPIView` для работы с уроками.
+
+---
+
+## Подписки
+
+Реализовано добавление и удаление подписки пользователя на курс. Повторный POST-запрос для того же курса переключает состояние подписки.
+
+В данных курса возвращается поле `is_subscribed`, которое показывает, подписан ли текущий пользователь.
 
 ---
 
@@ -84,8 +98,11 @@
 - Отображение списка платежей
 - Фильтрация по курсу, уроку и способу оплаты
 - Сортировка по дате оплаты (возрастание/убывание)
+- Создание платежа за выбранный курс
+- Создание продукта, цены и платежной сессии в Stripe
+- Сохранение и возврат ссылки Stripe Checkout
 
-Используется `ListAPIView` с фильтрацией через `DjangoFilterBackend` и сортировкой через `OrderingFilter`.
+Для списка используется `ListAPIView` с фильтрацией через `DjangoFilterBackend` и сортировкой через `OrderingFilter`. Взаимодействие со Stripe вынесено в сервисные функции.
 
 ---
 
@@ -107,6 +124,9 @@
 - `/users/register/` - регистрация пользователя
 - `/users/token/` - получение токена
 - `/users/token/refresh/` - обновление токена
+- `/api/schema/` - OpenAPI-схема
+- `/api/schema/swagger-ui/` - Swagger UI
+- `/api/schema/redoc/` - ReDoc
 
 Для авторизации необходимо включить JWT токен в заголовок запроса:
 ```
@@ -152,7 +172,8 @@ Authorization: Bearer <access_token>
 * `title` - название курса;
 * `preview` - изображение превью курса;
 * `description` - описание курса;
-* `owner` - владелец курса (`ForeignKey` к User).
+* `owner` - владелец курса (`ForeignKey` к User);
+* `price` - цена курса (`DecimalField`).
 
 ---
 
@@ -194,7 +215,19 @@ Authorization: Bearer <access_token>
 * `course` - оплаченный курс (`ForeignKey`, nullable);
 * `lesson` - оплаченный урок (`ForeignKey`, nullable);
 * `amount` - сумма оплаты (`DecimalField`);
-* `payment_method` - способ оплаты (choices: наличные/перевод).
+* `payment_method` - способ оплаты (choices: наличные/перевод/Stripe);
+* `payment_url` - ссылка на страницу оплаты Stripe Checkout.
+
+---
+
+## Subscription
+
+Модель хранит подписку пользователя на курс.
+
+Поля:
+
+* `user` - подписанный пользователь (`ForeignKey`);
+* `course` - курс, на который оформлена подписка (`ForeignKey`).
 
 ---
 
@@ -202,7 +235,7 @@ Authorization: Bearer <access_token>
 
 ## Курсы
 
-* `GET /api/courses/` - список всех курсов
+* `GET /api/courses/` - список курсов, доступных текущему пользователю
 * `POST /api/courses/` - создание нового курса
 * `GET /api/courses/{id}/` - просмотр курса
 * `PUT /api/courses/{id}/` - редактирование курса
@@ -213,12 +246,26 @@ Authorization: Bearer <access_token>
 
 ## Уроки
 
-* `GET /api/lessons/` - список всех уроков
+* `GET /api/lessons/` - список уроков, доступных текущему пользователю
 * `POST /api/lessons/` - создание нового урока
 * `GET /api/lessons/{id}/` - просмотр урока
 * `PUT /api/lessons/{id}/` - редактирование урока
 * `PATCH /api/lessons/{id}/` - частичное редактирование урока
 * `DELETE /api/lessons/{id}/` - удаление урока
+
+---
+
+## Подписки
+
+* `POST /api/subscriptions/` - добавить или удалить подписку на курс
+
+Тело запроса:
+
+```json
+{
+  "course_id": 1
+}
+```
 
 ---
 
@@ -239,6 +286,17 @@ JWT-авторизации. Получение, изменение и удале
 ## Платежи
 
 * `GET /users/payments/` - список всех платежей с фильтрацией и сортировкой
+* `POST /users/payments/create/` - создание платежа за курс и получение ссылки Stripe Checkout
+
+Для создания платежа необходимо передать только идентификатор курса:
+
+```json
+{
+  "course": 1
+}
+```
+
+Пользователь определяется по JWT-токену, сумма берется из цены курса, а способ оплаты и ссылка Stripe заполняются сервером. В ответ возвращаются данные созданного платежа, включая `payment_url`.
 
 Параметры фильтрации:
 * `course` - фильтрация по курсу
@@ -246,8 +304,28 @@ JWT-авторизации. Получение, изменение и удале
 * `payment_method` - фильтрация по способу оплаты
 
 Параметры сортировки:
-* `ordering=payment_date` - сортировка по дате оплаты (по умолчанию)
+* `ordering=payment_date` - сортировка по дате оплаты по возрастанию
 * `ordering=-payment_date` - сортировка по дате оплаты в обратном порядке
+
+---
+
+# Документация API
+
+Документация формируется с помощью `drf-spectacular`.
+
+После запуска проекта доступны:
+
+* `/api/schema/` - OpenAPI-схема
+* `/api/schema/swagger-ui/` - Swagger UI
+* `/api/schema/redoc/` - ReDoc
+
+Для выполнения защищенных запросов в Swagger необходимо получить JWT-токен и передать access-токен через кнопку **Authorize**.
+
+Проверить корректность OpenAPI-схемы:
+
+```
+poetry run python manage.py spectacular --file schema.yml --validate
+```
 
 ---
 
@@ -260,12 +338,6 @@ JWT-авторизации. Получение, изменение и удале
 poetry install
 ```
 
-Активировать виртуальное окружение:
-
-```
-poetry shell
-```
-
 Создать файл `.env` по примеру `.env_example` и заполнить параметры:
 
 ```
@@ -275,30 +347,43 @@ DATABASE_USER=postgres
 DATABASE_PASSWORD=postgres
 DATABASE_HOST=127.0.0.1
 DATABASE_PORT=5432
+STRIPE_API_KEY=sk_test_...
+STRIPE_SUCCESS_URL=http://127.0.0.1:8000/
+STRIPE_CANCEL_URL=http://127.0.0.1:8000/
 ```
+
+Для учебной оплаты необходимо использовать секретный ключ тестового режима Stripe. Настоящий ключ нельзя добавлять в Git.
+
+Перед применением миграций PostgreSQL должен быть запущен, а база данных из `.env` должна быть создана.
 
 Применить миграции:
 
 ```
-python manage.py migrate
+poetry run python manage.py migrate
 ```
 
 Загрузить фикстуру групп пользователей:
 
 ```
-python manage.py loaddata users/fixtures/groups.json
+poetry run python manage.py loaddata users/fixtures/groups.json
 ```
 
-Создать тестовые платежи (кастомная команда):
+При необходимости создать локальные демонстрационные платежи (команда не обращается к Stripe):
 
 ```
-python manage.py create_payments
+poetry run python manage.py create_payments
 ```
 
 Запустить сервер:
 
 ```
-python manage.py runserver
+poetry run python manage.py runserver
+```
+
+Запустить тесты:
+
+```
+poetry run python manage.py test
 ```
 
 ---
@@ -310,6 +395,33 @@ python manage.py runserver
 * `/admin/` - панель администратора Django
 * `/api/` - API endpoints для курсов и уроков
 * `/users/` - API endpoints для пользователей и платежей
+* `/api/schema/` - OpenAPI-схема
+* `/api/schema/swagger-ui/` - интерактивная документация Swagger UI
+* `/api/schema/redoc/` - документация ReDoc
+
+---
+
+# Тестирование оплаты Stripe
+
+Оплата проверяется в тестовом режиме Stripe. После создания платежа endpoint возвращает `payment_url`, которую необходимо открыть в браузере.
+
+Порядок проверки:
+
+1. Получить access-токен через `POST /users/token/`.
+2. Авторизоваться в Swagger UI.
+3. Выбрать существующий курс с ценой больше нуля.
+4. Выполнить `POST /users/payments/create/` с идентификатором курса.
+5. Открыть полученную `payment_url` и заполнить тестовые данные карты.
+6. Проверить созданную запись через `GET /users/payments/`.
+
+Для успешной тестовой оплаты можно использовать:
+
+* номер карты: `4242 4242 4242 4242`;
+* срок действия: любая будущая дата;
+* CVC: любые три цифры;
+* остальные данные: любые допустимые значения.
+
+После оплаты Stripe перенаправляет пользователя на адрес из `STRIPE_SUCCESS_URL`. Проверка и сохранение статуса платежа в проекте не реализованы.
 
 ---
 
@@ -374,7 +486,7 @@ python manage.py runserver
 
 Для загрузки группы модераторов в базу данных используйте фикстуру:
 ```
-python manage.py loaddata users/fixtures/groups.json
+poetry run python manage.py loaddata users/fixtures/groups.json
 ```
 
 # Используемые возможности Django и DRF
@@ -383,8 +495,12 @@ python manage.py loaddata users/fixtures/groups.json
 
 * Django REST Framework;
 * JWT-авторизация через `rest_framework_simplejwt`;
+* документация OpenAPI через `drf-spectacular`;
+* Swagger UI и ReDoc;
+* создание платежных сессий через Stripe Checkout;
+* сервисные функции для взаимодействия со Stripe API;
 * ViewSets (`ModelViewSet`, `GenericViewSet`) и mixins для CRUD пользователей;
-* Generic Views (`ListCreateAPIView`, `RetrieveUpdateDestroyAPIView`, `ListAPIView`);
+* Generic Views (`ListCreateAPIView`, `RetrieveUpdateDestroyAPIView`, `ListAPIView`, `CreateAPIView`);
 * Routers для автоматической генерации URL;
 * Django ORM;
 * миграции;
@@ -397,6 +513,8 @@ python manage.py loaddata users/fixtures/groups.json
 * настройка кастомного поля авторизации (`USERNAME_FIELD`);
 * `SerializerMethodField` для вычисляемых полей в сериализаторах;
 * вложенные сериализаторы для связанных моделей;
+* ручное описание операций через `extend_schema`;
+* отдельные сериализаторы запроса и ответа для документации;
 * фильтрация через `DjangoFilterBackend`;
 * сортировка через `OrderingFilter`;
 * кастомные management-команды для заполнения данными;

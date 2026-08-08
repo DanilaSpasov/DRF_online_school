@@ -18,10 +18,10 @@ class CourseSerializer(serializers.ModelSerializer):
     lessons = LessonSerializer(many=True, read_only=True)
     is_subscribed = serializers.SerializerMethodField()
 
-    def get_lessons_count(self, obj):
+    def get_lessons_count(self, obj) -> int:
         return obj.lessons.count()
 
-    def get_is_subscribed(self, obj):
+    def get_is_subscribed(self, obj) -> bool:
         request = self.context.get("request")
         return Subscription.objects.filter(user=request.user, course=obj).exists()
 
@@ -36,5 +36,14 @@ class CourseSerializer(serializers.ModelSerializer):
             "lessons_count",
             "lessons",
             "is_subscribed",
+            "price",
         ]
         read_only_fields = ("owner",)
+
+
+class SubscriptionRequestSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField()
+
+
+class SubscriptionResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()

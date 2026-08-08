@@ -43,14 +43,42 @@ class Payment(models.Model):
     PAYMENT_METHODS = (
         ("cash", "Наличные"),
         ("transfer", "Перевод"),
+        ("stripe", "Stripe"),
     )
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="payments")
-    payment_date = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        verbose_name="Пользователь",
+    )
+    payment_date = models.DateTimeField(auto_now_add=True, verbose_name="Дата оплаты")
     course = models.ForeignKey(
-        Course, on_delete=models.CASCADE, related_name="payments", blank=True, null=True
+        Course,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        blank=True,
+        null=True,
+        verbose_name="Курс",
     )
     lesson = models.ForeignKey(
-        Lesson, on_delete=models.CASCADE, related_name="payments", blank=True, null=True
+        Lesson,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        blank=True,
+        null=True,
+        verbose_name="Урок",
     )
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_method = models.CharField(choices=PAYMENT_METHODS, max_length=20)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма")
+    payment_method = models.CharField(
+        choices=PAYMENT_METHODS, max_length=20, verbose_name="Способ оплаты"
+    )
+    payment_url = models.URLField(
+        max_length=500, blank=True, null=True, verbose_name="Ссылка на оплату"
+    )
+
+    def __str__(self):
+        return f"{self.user} - {self.get_payment_method_display()}"
+
+    class Meta:
+        verbose_name = "Платёж"
+        verbose_name_plural = "Платежи"
