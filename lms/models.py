@@ -14,6 +14,7 @@ class Course(models.Model):
         verbose_name="Владелец",
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
     def __str__(self):
         return self.title
