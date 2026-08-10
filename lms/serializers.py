@@ -37,8 +37,9 @@ class CourseSerializer(serializers.ModelSerializer):
             "lessons",
             "is_subscribed",
             "price",
+            "updated_at",
         ]
-        read_only_fields = ("owner",)
+        read_only_fields = ("owner", "updated_at")
 
 
 class SubscriptionRequestSerializer(serializers.Serializer):
