@@ -11,7 +11,8 @@
 * **Язык программирования:** Python 3.14
 * **СУБД:** PostgreSQL
 * **ORM:** Django ORM
-* **Брокер сообщений:** Redis 6.4
+* **Брокер сообщений:** Redis 7.2
+* **Python-клиент Redis:** redis-py 6.4
 * **Фоновые задачи:** Celery 5.6
 * **Периодические задачи:** django-celery-beat 2.9
 * **Контроль версий:** Git / GitHub
@@ -287,7 +288,7 @@ Authorization: Bearer <access_token>
 
 Тело запроса:
 
-```json
+```
 {
   "course_id": 1
 }
@@ -316,7 +317,7 @@ JWT-авторизации. Получение, изменение и удале
 
 Для создания платежа необходимо передать только идентификатор курса:
 
-```json
+```
 {
   "course": 1
 }
@@ -356,7 +357,43 @@ poetry run python manage.py spectacular --file schema.yml --validate
 ---
 
 
-# Запуск проекта
+# Запуск проекта через Docker Compose
+
+Установить Docker, запустить Docker Desktop и создать `.env`:
+
+```
+cp .env_example .env
+```
+
+Заполнить переменные по примеру. Значения `POSTGRES_DB`, `POSTGRES_USER` и
+`POSTGRES_PASSWORD` должны совпадать с соответствующими данными.
+
+При первом запуске поднять инфраструктуру и Django, затем применить миграции:
+
+```
+docker compose up --build -d db redis web
+docker compose exec web poetry run python manage.py migrate
+docker compose up --build -d
+```
+
+Для последующих запусков:
+
+```
+docker compose up -d
+```
+
+Остановить контейнеры:
+
+```
+docker compose down
+```
+
+Данные PostgreSQL и Redis сохраняются в volumes. Команда
+`docker compose down -v` удаляет их вместе с данными.
+
+---
+
+# Локальный запуск без Docker
 
 Установить зависимости:
 
@@ -373,6 +410,9 @@ DATABASE_USER=postgres
 DATABASE_PASSWORD=postgres
 DATABASE_HOST=127.0.0.1
 DATABASE_PORT=5432
+POSTGRES_DB=lms_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 STRIPE_API_KEY=sk_test_...
 STRIPE_SUCCESS_URL=http://127.0.0.1:8000/
 STRIPE_CANCEL_URL=http://127.0.0.1:8000/
