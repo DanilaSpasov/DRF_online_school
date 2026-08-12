@@ -368,19 +368,45 @@ cp .env_example .env
 Заполнить переменные по примеру. Значения `POSTGRES_DB`, `POSTGRES_USER` и
 `POSTGRES_PASSWORD` должны совпадать с соответствующими данными.
 
-При первом запуске поднять инфраструктуру и Django, затем применить миграции:
+При первом запуске собрать образ, поднять инфраструктуру, применить миграции,
+собрать статические файлы и запустить все сервисы:
 
 ```
-docker compose up --build -d db redis web
-docker compose exec web poetry run python manage.py migrate
-docker compose up --build -d
+docker compose build
+docker compose up -d db redis
+docker compose run --rm web poetry run python manage.py migrate --noinput
+docker compose run --rm web poetry run python manage.py collectstatic --noinput
+docker compose up -d
 ```
 
-Для последующих запусков:
+Для обычного повторного запуска уже собранной версии:
 
 ```
 docker compose up -d
 ```
+
+При обновлении версии приложения нужно заново собрать образ, применить новые
+миграции, обновить статические файлы и пересоздать контейнеры:
+
+```
+docker compose build
+docker compose run --rm web poetry run python manage.py migrate --noinput
+docker compose run --rm web poetry run python manage.py collectstatic --noinput
+docker compose up -d --remove-orphans
+```
+
+Проверить состояние контейнеров и ответ приложения:
+
+```
+docker compose ps
+curl --fail http://127.0.0.1:8000/api/schema/
+```
+
+Порт Gunicorn доступен только на `127.0.0.1:8000`. PostgreSQL и Redis
+доступны только сервисам внутри Docker-сети.
+
+Gunicorn не раздает каталоги `staticfiles` и `media`. На удаленном сервере
+их будет обслуживать Nginx, который настроим на следующем этапе.
 
 Остановить контейнеры:
 
@@ -405,6 +431,9 @@ poetry install
 
 ```
 SECRET_KEY=your_secret_key
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1
 DATABASE_NAME=lms_db
 DATABASE_USER=postgres
 DATABASE_PASSWORD=postgres
