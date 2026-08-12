@@ -406,7 +406,7 @@ curl --fail http://127.0.0.1:8000/api/schema/
 доступны только сервисам внутри Docker-сети.
 
 Gunicorn не раздает каталоги `staticfiles` и `media`. На удаленном сервере
-их будет обслуживать Nginx, который настроим на следующем этапе.
+их обслуживает Nginx.
 
 Остановить контейнеры:
 
@@ -416,6 +416,108 @@ docker compose down
 
 Данные PostgreSQL и Redis сохраняются в volumes. Команда
 `docker compose down -v` удаляет их вместе с данными.
+
+---
+
+# Деплой и CI/CD
+
+## Подготовка удаленного сервера
+
+На сервере с Ubuntu 24.04 установить необходимые программы:
+
+```
+sudo apt update
+sudo apt install -y git docker.io docker-compose-v2 nginx
+sudo systemctl enable --now docker nginx
+sudo usermod -aG docker ubuntu
+```
+
+Переподключиться по SSH, затем клонировать проект и создать серверный `.env`:
+
+```
+git clone https://github.com/DanilaSpasov/DRF_online_school.git
+cd DRF_online_school
+cp .env_example .env
+chmod 600 .env
+```
+
+В `.env` установить `DEBUG=False`, указать IP или домен в `ALLOWED_HOSTS` и
+`CSRF_TRUSTED_ORIGINS`, заполнить остальные значения. Пароли
+`DATABASE_PASSWORD` и `POSTGRES_PASSWORD` должны совпадать. Первый запуск
+выполняется командами из раздела «Запуск проекта через Docker Compose».
+
+## Настройка Nginx
+
+Создать `/etc/nginx/sites-available/drf-online-school`, заменив `<SERVER_IP>`:
+
+```
+server {
+    listen 80;
+    server_name <SERVER_IP>;
+
+    location /static/ {
+        alias /home/ubuntu/DRF_online_school/staticfiles/;
+    }
+
+    location /media/ {
+        alias /home/ubuntu/DRF_online_school/media/;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+Включить конфигурацию и применить её:
+
+```
+chmod 711 /home/ubuntu
+sudo ln -s /etc/nginx/sites-available/drf-online-school \
+  /etc/nginx/sites-enabled/drf-online-school
+sudo unlink /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+В Yandex Cloud и UFW открыть только `22` для SSH и `80` для HTTP. Порты
+`8000`, `5432` и `6379` наружу не открывать:
+
+```
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx HTTP'
+sudo ufw default deny incoming
+sudo ufw enable
+```
+
+## GitHub Actions
+
+Workflow `.github/workflows/ci-cd.yml` запускается при `push` и
+`pull_request`:
+
+```
+lint → test → build → deploy
+```
+
+Этапы проверяют Black, Django, миграции и тесты, затем собирают Docker-образ.
+При ошибке pipeline останавливается. Деплой выполняется только после успешного
+`push` в `master`; для других веток и Pull Request он пропускается.
+
+Для автоматического подключения к серверу в настройках репозитория
+`Settings → Secrets and variables → Actions` создать Secrets: `SSH_KEY` —
+закрытый ключ, `SSH_USER` — пользователь сервера, `SERVER_IP` — статический IP.
+
+Для деплоя используется отдельная пара SSH-ключей: открытая часть добавляется
+на сервер, закрытая сохраняется в `SSH_KEY`. Workflow обновляет `master`,
+применяет миграции, собирает статику, запускает контейнеры и проверяет Django.
+
+Проверка приложения:
+
+```
+http://<SERVER_IP>/api/schema/swagger-ui/
+http://<SERVER_IP>/api/schema/redoc/
+```
 
 ---
 
