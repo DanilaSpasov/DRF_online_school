@@ -20,6 +20,8 @@ __pycache__
 .mypy_cache
 .coverage
 htmlcov
+media
+staticfiles
 
 
 *.log
